@@ -33,6 +33,7 @@ public class BatchProcess {
 		List<InputEntry> inputEntries = readRecordEntriesFromCSVFile();
 		processData(inputEntries);
 	}
+	
 
 	public static void processData(List<InputEntry> inputEntries) {
 
