@@ -35,19 +35,17 @@ public class BatchProcess {
 	}
  
 	public static void processData(List<InputEntry> inputEntries) {
-
+	
 		System.out.println("processSensors()");
-
 		ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 		CompletionService<String> cService = new ExecutorCompletionService<>(executor);
-
+	
 		for (InputEntry inputEntry : inputEntries) {
-
+	
 			cService.submit(() -> processSensorData(inputEntry));
 		}
-
+	
 		int processed = 0;
-
 		while (processed < inputEntries.size()) {
 			processed++;
 			try {
@@ -66,12 +64,11 @@ public class BatchProcess {
 		return "ID: " + inputEntry.id() + ": " + analyzeSensorData(data);
 	}
 
-	private static DoubleStream fetchSensorData(InputEntry inputEntry)
-			throws MalformedURLException, InterruptedException {
+	private static DoubleStream fetchSensorData(InputEntry inputEntry) throws MalformedURLException, InterruptedException {
 		URL pwUrl = new URL(inputEntry.url() + "/startTime/endTime");
 		// In a real application open a secure url stream and fetch the data
 		// For this example we return some random data and simulate network latencies
-		Thread.sleep((long) Math.random());
+		Thread.sleep((long) (Math.random() * 100));
 		DoubleStream data = DoubleStream.generate(() -> new Random().nextDouble()).limit(100);
 		return data;
 	}
@@ -88,7 +85,7 @@ public class BatchProcess {
 	}
 
 	public static int determineStatusCode(double result) {
-		// In real application determine code based on result parameters
+		// In a real application determine code based on result parameters
 		if (result > 0.49) {
 			return 719; // Made up error code
 		} else {
