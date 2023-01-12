@@ -34,6 +34,9 @@ public class BatchProcess {
 		processData(inputEntries);
 	}
  
+	/**
+	 * @param inputEntries
+	 */
 	public static void processData(List<InputEntry> inputEntries) {
 
 		System.out.println("processSensors()");
