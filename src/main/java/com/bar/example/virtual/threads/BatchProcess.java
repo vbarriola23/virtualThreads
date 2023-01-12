@@ -124,14 +124,15 @@ public class BatchProcess {
 		}
 	}
 	
-	public static String validateData(DoubleStream data)
+	public static String validateData(DoubleStream data) throws InterruptedException
 	{
-		
+		Thread.sleep((long) Math.random());
 		return "";
 	}
 
-	public static String checkEnvironment(DoubleStream data) {
+	public static String checkEnvironment(DoubleStream data) throws InterruptedException {
 
+		Thread.sleep((long) Math.random());
 		return "";
 	}
 }
