@@ -14,6 +14,7 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.stream.DoubleStream;
 
 import org.apache.commons.csv.CSVFormat;
@@ -24,6 +25,9 @@ import jdk.incubator.concurrent.StructuredTaskScope;
 
 public class BatchProcess {
 
+	//Number of permits for the semaphore need to be determined fine tuning access to resource
+	public static Semaphore semaphoreService = new Semaphore(8);
+	
 	record InputEntry(String url, String id, String startTime, String endTime) {
 	}
 
@@ -57,11 +61,11 @@ public class BatchProcess {
 		}
 	}
 
-	public static String processSensorData(InputEntry inputEntry) throws IOException, InterruptedException {
+	public static String processSensorData(InputEntry inputEntry) throws IOException, InterruptedException, ExecutionException {
 
 		DoubleStream data = fetchSensorData(inputEntry);
 
-		return "ID: " + inputEntry.id() + ": " + analyzeSensorData(data);
+		return "ID: " + inputEntry.id() + ": " + validateAndAnalyzeSensorData(data);
 	}
 
 	private static DoubleStream fetchSensorData(InputEntry inputEntry) throws MalformedURLException, InterruptedException {
@@ -109,27 +113,48 @@ public class BatchProcess {
 		return inputEntries;
 	}
 
-	public static int validateAndAnalyzeSensorData(DoubleStream data) throws IOException, InterruptedException {
+	public static int validateAndAnalyzeSensorData(DoubleStream data) throws IOException, InterruptedException, ExecutionException {
 
 		try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
 
-		    Future<String> validatedData = scope.fork(() -> validateData(data));
-		    Future<String> checkedEnvironment = scope.fork(() -> checkEnvironment(data));
-		    scope.join();
-		    scope.throwIfFailed(e -> new IOException(e));
-		    return analyzeSensorData(data);
+			Future<String> validatedData = scope.fork(() -> validateData(data));
+			Future<String> checkedEnvironment = scope.fork(() -> checkEnvironment(data));
+			scope.join();
+			scope.throwIfFailed(e -> new IOException(e));
+			if (validatedData.resultNow().equals("ok") && checkedEnvironment.resultNow().equals("ok"))
+				return analyzeSensorData(data);
+			else 
+				return -1;
 		}
 	}
-	
-	public static String validateData(DoubleStream data) throws InterruptedException
-	{
+
+	public static String validateData(DoubleStream data) throws IOException, InterruptedException {
+		
+		URL pwUrl = new URL("https:/locatior/service/validation");
+		// In a real application open a secure url stream and fetch the data
+		// For this example we return some random data and simulate network latencies
 		Thread.sleep((long) Math.random());
-		return "";
+		return "ok";
 	}
 
-	public static String checkEnvironment(DoubleStream data) throws InterruptedException {
+	public static String checkEnvironment(DoubleStream data) throws IOException, InterruptedException {
 
+		URL pwUrl = new URL("https:/locatior/service/environment/source");
+		// In a real application open a secure url stream and fetch the data
+		// For this example we return some random data and simulate network latencies
 		Thread.sleep((long) Math.random());
-		return "";
+		return "ok";
+	}
+	
+	
+	public static String performScarceResourceRequest() throws InterruptedException, IOException {
+		
+		//Throttle access to service
+		semaphoreService.acquire();
+		//perform expensive request
+		// For this example we return some random data and simulate network latencies
+		Thread.sleep((long) Math.random());
+		semaphoreService.release();
+		return "Requested data";
 	}
 }

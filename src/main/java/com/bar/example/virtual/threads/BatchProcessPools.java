@@ -1,6 +1,6 @@
 package com.bar.example.virtual.threads;
 
-public class batchProcessPools {
+public class BatchProcessPools {
 
 	public static void main(String[] args) {
 		
