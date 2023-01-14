@@ -25,7 +25,7 @@ import jdk.incubator.concurrent.StructuredTaskScope;
 
 public class BatchProcess {
 
-	//Number of permits for the semaphore need to be determined fine tuning access to resource
+	//Number of permits for the semaphore needs to be determined fine-tuning access to a resource
 	public static Semaphore semaphoreService = new Semaphore(8);
 	
 	record InputEntry(String url, String id, String startTime, String endTime) {
@@ -41,6 +41,7 @@ public class BatchProcess {
 	public static void processData(List<InputEntry> inputEntries) {
 	
 		System.out.println("processSensors()");
+		long startTime = System.nanoTime();
 		ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 		CompletionService<String> cService = new ExecutorCompletionService<>(executor);
 	
@@ -59,6 +60,8 @@ public class BatchProcess {
 				System.out.println("Failed to process:" + e.getMessage());
 			}
 		}
+		System.out.println("elapsed time:" + (System.nanoTime() - startTime));
+		System.out.println("total number of input processed:" + processed);
 	}
 
 	public static String processSensorData(InputEntry inputEntry) throws IOException, InterruptedException, ExecutionException {
@@ -73,7 +76,7 @@ public class BatchProcess {
 		// In a real application open a secure url stream and fetch the data
 		// For this example we return some random data and simulate network latencies
 		Thread.sleep((long) (Math.random() * 100));
-		DoubleStream data = DoubleStream.generate(() -> new Random().nextDouble()).limit(100);
+		DoubleStream data = DoubleStream.generate(() -> new Random().nextDouble()).limit(100000);
 		return data;
 	}
 
@@ -102,11 +105,13 @@ public class BatchProcess {
 		List<InputEntry> inputEntries = new ArrayList<>();
 
 		try (Reader in = new FileReader("C:\\Users\\mbarr\\Documents\\recordEntriesPowerPlants.csv");
-				CSVParser records = CSVFormat.DEFAULT.withHeader().withFirstRecordAsHeader().parse(in);) {
+				
+			CSVParser records = CSVFormat.DEFAULT.withHeader().withFirstRecordAsHeader().parse(in);) {
 
 			for (CSVRecord record : records) {
 
 				InputEntry inputEntry = new InputEntry(record.get(0), record.get(1), record.get(2), record.get(3));
+				for (int i = 0; i<10000; i++)
 				inputEntries.add(inputEntry);
 			}
 		}
