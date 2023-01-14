@@ -7,26 +7,20 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.stream.DoubleStream;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 
-import com.bar.example.virtual.threads.BatchProcess.InputEntry;
-
-import jdk.incubator.concurrent.StructuredTaskScope;
-
 public class BatchProcessPools {
-	
-	//Determine number of threads based on system resource
+
+	// Determine number of threads based on system resource
 	private static int NUM_THREADS = 8;
 	private static ExecutorService fixSizePoolService = Executors.newFixedThreadPool(NUM_THREADS);
 
@@ -36,17 +30,14 @@ public class BatchProcessPools {
 	public static void main(String[] args) throws InterruptedException, ExecutionException {
 		System.out.println("Starting Batch Process");
 
-		long[] inputEntries = {1,2,3,4,5,6};
-		long mean = analyzeSensorData(inputEntries);
-		System.out.println(mean);
-//		try {
-//
-//			inputEntries = readRecordEntriesFromCSVFile();
-//			processData(inputEntries);
-//		} catch (IOException ex) {
-//
-//			System.out.println("Failed to read CSV file:" + ex.getMessage());
-//		}
+		List<InputEntry> inputEntries = new ArrayList<>();
+		try {
+			inputEntries = readRecordEntriesFromCSVFile();
+			processData(inputEntries);
+		} catch (IOException ex) {
+
+			System.out.println("Failed to read CSV file:" + ex.getMessage());
+		}
 	}
 
 	public static void processData(List<InputEntry> inputEntries) {
@@ -75,17 +66,17 @@ public class BatchProcessPools {
 	public static String processSensorData(InputEntry inputEntry)
 			throws IOException, InterruptedException, ExecutionException {
 
-		long[] data = fetchSensorData(inputEntry);
+		double[] data = fetchSensorData(inputEntry);
 
 		return "ID: " + inputEntry.id() + ": " + analyzeSensorData(data);
 	}
 
-	private static long[] fetchSensorData(InputEntry inputEntry) throws MalformedURLException, InterruptedException {
+	private static double[] fetchSensorData(InputEntry inputEntry) throws MalformedURLException, InterruptedException {
 		URL pwUrl = new URL(inputEntry.url() + "/startTime/endTime");
 		// In a real application open a secure url stream and fetch the data
 		// For this example we return some random data and simulate network latencies
 		Thread.sleep((long) (Math.random() * 100));
-		long[] data = new long[1000];
+		double[] data = new double[1000];
 		// DoubleStream data = DoubleStream.generate(() -> new
 		// Random().nextDouble()).limit(100);
 		for (int i = 0; i < 1000; i++) {
@@ -111,34 +102,33 @@ public class BatchProcessPools {
 	}
 
 	// Do data analysis to check if system is working properly or has issues
-	public static long analyzeSensorData(long[] data) throws InterruptedException, ExecutionException {
-		
+	public static double analyzeSensorData(double[] data) throws InterruptedException, ExecutionException {
+
 		int segmentSize = data.length / NUM_THREADS;
-		List<Future<Long>> futures = new ArrayList<>(); 
-		int numSegments = 0;
-		while ( data.length < (numSegments * segmentSize)) {
-			int start = numSegments * segmentSize;
-			int end = (numSegments+1) * segmentSize;
+		List<Future<Double>> futures = new ArrayList<>();
+		int index = 0;
+		while (index < NUM_THREADS) {
+			
+			int start = index * segmentSize;
+			int end = (index + 1) * segmentSize;
 			futures.add(fixSizePoolService.submit(() -> {
-				long segmentSum = 0;
+				double segmentSum = 0;
 				for (int j = start; j < end; j++) {
 					segmentSum += data[j];
 				}
 				return segmentSum;
 			}));
-			numSegments ++;
+			index++;
 		}
-			
-		long totalSum = 0;
-		for (Future<Long> future : futures) {
+		double totalSum = 0;
+		for (Future<Double> future : futures) {
 			totalSum += future.get();
 		}
-		
-		//add the left over segment
-		int lastElementProcessed = numSegments * segmentSize;
+		// add the left over segment
+		int lastElementProcessed = NUM_THREADS * segmentSize;
 		for (int i = lastElementProcessed; i < data.length; i++) {
 			totalSum += data[i];
 		}
-		return totalSum/data.length;
+		return totalSum / data.length;
 	}
 }
