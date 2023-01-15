@@ -23,6 +23,7 @@ public class BatchProcessPools {
 	// Determine number of threads based on system resource
 	private static int NUM_THREADS = 8;
 	private static ExecutorService fixSizePoolService = Executors.newFixedThreadPool(NUM_THREADS);
+	private static ExecutorService cachedPoolService = Executors.newCachedThreadPool();
 
 	record InputEntry(String url, String id, String startTime, String endTime) {
 	}
@@ -33,14 +34,18 @@ public class BatchProcessPools {
 		List<InputEntry> inputEntries = new ArrayList<>();
 		try {
 			inputEntries = readRecordEntriesFromCSVFile();
-			processData(inputEntries);
+			if (args.length == 0 || args[0].equalsIgnoreCase("fixThreadPool")) {
+				processData(inputEntries, fixSizePoolService);
+			} else {
+				processData(inputEntries, cachedPoolService);
+			}
 		} catch (IOException ex) {
 
 			System.out.println("Failed to read CSV file:" + ex.getMessage());
 		}
 	}
 
-	public static void processData(List<InputEntry> inputEntries) {
+	public static void processData(List<InputEntry> inputEntries, ExecutorService threadPool) {
 
 		System.out.println("processSensors()");
 		ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
@@ -48,7 +53,7 @@ public class BatchProcessPools {
 
 		for (InputEntry inputEntry : inputEntries) {
 
-			cService.submit(() -> processSensorData(inputEntry));
+			cService.submit(() -> processSensorData(inputEntry, threadPool));
 		}
 
 		int processed = 0;
@@ -63,12 +68,12 @@ public class BatchProcessPools {
 		}
 	}
 
-	public static String processSensorData(InputEntry inputEntry)
+	public static String processSensorData(InputEntry inputEntry, ExecutorService threadPool)
 			throws IOException, InterruptedException, ExecutionException {
 
 		double[] data = fetchSensorData(inputEntry);
 
-		return "ID: " + inputEntry.id() + ": " + analyzeSensorData(data);
+		return "ID: " + inputEntry.id() + ": " + analyzeSensorData(data, threadPool);
 	}
 
 	private static double[] fetchSensorData(InputEntry inputEntry) throws MalformedURLException, InterruptedException {
@@ -102,16 +107,17 @@ public class BatchProcessPools {
 	}
 
 	// Do data analysis to check if system is working properly or has issues
-	public static double analyzeSensorData(double[] data) throws InterruptedException, ExecutionException {
+	public static double analyzeSensorData(double[] data, ExecutorService threadPool)
+			throws InterruptedException, ExecutionException {
 
 		int segmentSize = data.length / NUM_THREADS;
 		List<Future<Double>> futures = new ArrayList<>();
 		int index = 0;
 		while (index < NUM_THREADS) {
-			
+
 			int start = index * segmentSize;
 			int end = (index + 1) * segmentSize;
-			futures.add(fixSizePoolService.submit(() -> {
+			futures.add(threadPool.submit(() -> {
 				double segmentSum = 0;
 				for (int j = start; j < end; j++) {
 					segmentSum += data[j];
