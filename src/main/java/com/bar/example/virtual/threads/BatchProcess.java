@@ -1,5 +1,6 @@
 package com.bar.example.virtual.threads;
 
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
@@ -25,31 +26,42 @@ import jdk.incubator.concurrent.StructuredTaskScope;
 
 public class BatchProcess {
 
-	//Number of permits for the semaphore needs to be determined fine-tuning access to a resource
+	// Number of permits for the semaphore needs to be determined fine-tuning access
+	// to a resource
 	public static Semaphore semaphoreService = new Semaphore(8);
-	
+
 	record InputEntry(String url, String id, String startTime, String endTime) {
 	}
 
-	public static void main(String[] params) throws IOException {
+	public static void main(String[] params) throws IOException, InterruptedException {
 
 		System.out.println("Starting Batch Process");
-		List<InputEntry> inputEntries = readRecordEntriesFromCSVFile();
-		processData(inputEntries);
+		long runningTimeMilliseconds = 10000;
+		// Simulate a continuous input through a reading loop.
+		long startTime = System.currentTimeMillis();
+		long endTime = System.currentTimeMillis();
+		while ((endTime - startTime) < runningTimeMilliseconds) {
+
+			processData(readRecordEntriesFromCSVFile());
+			endTime = System.currentTimeMillis();
+			long timeElapsed = endTime - startTime;
+			System.out.println("Time elapsed:" + timeElapsed);
+			Thread.sleep(10);
+		}
 	}
- 
+
 	public static void processData(List<InputEntry> inputEntries) {
-	
+
 		System.out.println("processSensors()");
 		long startTime = System.nanoTime();
 		ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 		CompletionService<String> cService = new ExecutorCompletionService<>(executor);
-	
+
 		for (InputEntry inputEntry : inputEntries) {
-	
+
 			cService.submit(() -> processSensorData(inputEntry));
 		}
-	
+
 		int processed = 0;
 		while (processed < inputEntries.size()) {
 			processed++;
@@ -64,14 +76,16 @@ public class BatchProcess {
 		System.out.println("total number of input processed:" + processed);
 	}
 
-	public static String processSensorData(InputEntry inputEntry) throws IOException, InterruptedException, ExecutionException {
+	public static String processSensorData(InputEntry inputEntry)
+			throws IOException, InterruptedException, ExecutionException {
 
 		DoubleStream data = fetchSensorData(inputEntry);
 
 		return "ID: " + inputEntry.id() + ": " + validateAndAnalyzeSensorData(data);
 	}
 
-	private static DoubleStream fetchSensorData(InputEntry inputEntry) throws MalformedURLException, InterruptedException {
+	private static DoubleStream fetchSensorData(InputEntry inputEntry)
+			throws MalformedURLException, InterruptedException {
 		URL pwUrl = new URL(inputEntry.url() + "/startTime/endTime");
 		// In a real application open a secure url stream and fetch the data
 		// For this example we return some random data and simulate network latencies
@@ -104,21 +118,25 @@ public class BatchProcess {
 
 		List<InputEntry> inputEntries = new ArrayList<>();
 
-		try (Reader in = new FileReader("C:\\Users\\mbarr\\Documents\\recordEntriesPowerPlants.csv");
-				
-			CSVParser records = CSVFormat.DEFAULT.withHeader().withFirstRecordAsHeader().parse(in);) {
+		ClassLoader classLoader = BatchProcess.class.getClassLoader();
+
+		File file = new File(classLoader.getResource("recordEntriesPowerPlants.csv").getFile());
+
+		try (Reader in = new FileReader(file);
+
+				CSVParser records = CSVFormat.DEFAULT.withHeader().withFirstRecordAsHeader().parse(in);) {
 
 			for (CSVRecord record : records) {
 
 				InputEntry inputEntry = new InputEntry(record.get(0), record.get(1), record.get(2), record.get(3));
-				for (int i = 0; i<10000; i++)
 				inputEntries.add(inputEntry);
 			}
 		}
 		return inputEntries;
 	}
 
-	public static int validateAndAnalyzeSensorData(DoubleStream data) throws IOException, InterruptedException, ExecutionException {
+	public static int validateAndAnalyzeSensorData(DoubleStream data)
+			throws IOException, InterruptedException, ExecutionException {
 
 		try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
 
@@ -128,13 +146,13 @@ public class BatchProcess {
 			scope.throwIfFailed(e -> new IOException(e));
 			if (validatedData.resultNow().equals("ok") && checkedEnvironment.resultNow().equals("ok"))
 				return analyzeSensorData(data);
-			else 
+			else
 				return -1;
 		}
 	}
 
 	public static String validateData(DoubleStream data) throws IOException, InterruptedException {
-		
+
 		URL pwUrl = new URL("https:/locatior/service/validation");
 		// In a real application open a secure url stream and fetch the data
 		// For this example we return some random data and simulate network latencies
@@ -150,13 +168,12 @@ public class BatchProcess {
 		Thread.sleep((long) Math.random());
 		return "ok";
 	}
-	
-	
+
 	public static String performScarceResourceRequest() throws InterruptedException, IOException {
-		
-		//Throttle access to service
+
+		// Throttle access to service
 		semaphoreService.acquire();
-		//perform expensive request
+		// perform expensive request
 		// For this example we return some random data and simulate network latencies
 		Thread.sleep((long) Math.random());
 		semaphoreService.release();
