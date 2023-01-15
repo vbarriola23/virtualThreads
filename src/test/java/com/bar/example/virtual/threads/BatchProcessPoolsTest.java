@@ -34,9 +34,9 @@ public class BatchProcessPoolsTest {
 			arr[i] = (Math.random() * 100);
 			sum = sum + arr[i];
 		}
+		
 		mean =  sum / ARRAY_LENGTH;
 		for (int i = 0; i<1000; i++) {
-			
 			inputEntries.add(new InputEntry("https://pw1/section/sensors", "3747ke", "11:00,12/21/2022 9:00", "11:00,12/21/2022 12:00"));
 		}
 	}
