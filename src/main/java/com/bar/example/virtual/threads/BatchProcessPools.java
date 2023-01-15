@@ -109,12 +109,12 @@ public class BatchProcessPools {
 	// Do data analysis to check if system is working properly or has issues
 	public static double analyzeSensorData(double[] data, ExecutorService threadPool)
 			throws InterruptedException, ExecutionException {
-
+		
 		int segmentSize = data.length / NUM_THREADS;
 		List<Future<Double>> futures = new ArrayList<>();
+		
 		int index = 0;
 		while (index < NUM_THREADS) {
-
 			int start = index * segmentSize;
 			int end = (index + 1) * segmentSize;
 			futures.add(threadPool.submit(() -> {
